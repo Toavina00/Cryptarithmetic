@@ -89,15 +89,11 @@ fn main() {
 
     // Initialize Constraints for each column
     for i in 0..width {
-        let c0 = input0.chars().nth(width - 1 - i).unwrap();
-        let c1 = input1.chars().nth(width - 1 - i).unwrap();
-        let c2 = output.chars().nth(width - 1 - i).unwrap();
+        let c0 = input0.chars().nth(i).unwrap();
+        let c1 = input1.chars().nth(i).unwrap();
+        let c2 = output.chars().nth(i).unwrap();
         let carry_in = format!("CARRY_{}", i);
-        let carry_out= if i == 0 {
-            "#".to_string()
-        } else {
-            format!("CARRY_{}", i - 1)
-        };
+        let carry_out= format!("CARRY_{}", if i == 0 {width-1} else {i-1});
 
         // Create Hidden Variables
         let mut hidden_variable = Vec::new();
@@ -168,8 +164,11 @@ fn main() {
 
     // Filter the domain
     filter_domain(&mut variables, &constraints);
+    let mut assignment = solution(&variables, &constraints).unwrap();
 
     // Print Results
     variables.variable.retain(|k, _| !k.contains("CARRY") && *k != "#".to_string());
     println!("{:?}", variables.variable);
+    assignment.retain(|k, _| !k.contains("CARRY") && *k != "#".to_string());
+    println!("{:?}", assignment);
 }

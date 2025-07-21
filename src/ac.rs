@@ -9,7 +9,7 @@ pub enum VariableType<T> {
     Hidden(Rc<HashMap<String, T>>),
 }
 
-pub type Assignement<T> = HashMap<String, T>;
+pub type Assignement<T> = HashMap<String, Rc<T>>;
 
 pub struct Variables<T> {
     pub variable: HashMap<String, Vec<Rc<T>>>,
@@ -25,11 +25,11 @@ impl<T: Clone> Variables<T> {
     }
 
     pub fn insert(&mut self, key: String, values: Vec<T>) {
-        self.variable.insert(key, values.iter().cloned().map(Rc::from).collect());
+        self.variable.insert(key, values.into_iter().map(Rc::from).collect());
     }
 
     pub fn insert_hidden(&mut self, key: String, values: Vec<HashMap<String, T>>) {
-        self.hidden_variable.insert(key, values.iter().cloned().map(Rc::from).collect());
+        self.hidden_variable.insert(key, values.into_iter().map(Rc::from).collect());
     }
 
     pub fn get(&self, key: &str) -> Option<Vec<VariableType<T>>> {
@@ -68,7 +68,7 @@ pub enum Constraint<T> {
 
 pub type Constraints<T> = Vec<Constraint<T>>;
 
-pub fn arc_consistency<T: Clone>(variables: &mut Variables<T>, arcs: &Constraints<T>) {
+fn arc_consistency<T: Clone>(variables: &mut Variables<T>, arcs: &Constraints<T>) {
     for arc in arcs {
         match arc {
             Constraint::Binary((x0, x1, a)) => {
@@ -76,9 +76,8 @@ pub fn arc_consistency<T: Clone>(variables: &mut Variables<T>, arcs: &Constraint
                     variables.update(
                         x0,
                         x0_values
-                            .iter()
-                            .filter(|&x| x1_values.iter().any(|y| a(x.clone(), y.clone())))
-                            .cloned(),
+                            .into_iter()
+                            .filter(|x| x1_values.iter().any(|y| a(x.clone(), y.clone())))      
                     );
                 }
             }
@@ -86,7 +85,7 @@ pub fn arc_consistency<T: Clone>(variables: &mut Variables<T>, arcs: &Constraint
                 if let Some(x_values) = variables.get(x) {
                     variables.update(
                         x,
-                        x_values.iter().filter(|&x| a(x.clone())).cloned(),
+                        x_values.into_iter().filter(|x| a(x.clone())),
                     );
                 }
             }
@@ -94,7 +93,7 @@ pub fn arc_consistency<T: Clone>(variables: &mut Variables<T>, arcs: &Constraint
     }
 }
 
-pub fn is_consistent<T: Clone>(variables: &Variables<T>, constraints: &Constraints<T>) -> bool {
+fn is_consistent<T: Clone>(variables: &Variables<T>, constraints: &Constraints<T>) -> bool {
     for constraint in constraints.iter() {
         match constraint {
             Constraint::Binary((x0, x1, a)) => {
@@ -119,7 +118,7 @@ pub fn is_consistent<T: Clone>(variables: &Variables<T>, constraints: &Constrain
     true
 }
 
-pub fn build_arcs<T: 'static>(constraints: &Constraints<T>) -> Constraints<T> {
+fn build_arcs<T: 'static>(constraints: &Constraints<T>) -> Constraints<T> {
     let mut arcs = Vec::new();
 
     for constraint in constraints.iter() {
@@ -151,5 +150,73 @@ pub fn filter_domain<T: Clone + 'static>(variables: &mut Variables<T>, constrain
         if is_consistent(variables, constraints) {
             break;
         }
+    }
+}
+
+fn is_solution<T: Clone>(assignement: &Assignement<T>, constraints: &Constraints<T>) -> bool {
+    for constraint in constraints.iter() {
+        match constraint {
+            Constraint::Binary((x0, x1, a)) => {
+                if let (Some(x), Some(y)) = (assignement.get(x0), assignement.get(x1)) {
+                    if !a(VariableType::Value(x.clone()), VariableType::Value(y.clone())) {return false;}
+                }
+            }
+            Constraint::Unary((x, a)) => {
+                if let Some(v) = assignement.get(x) {
+                    if !a(VariableType::Value(v.clone())) {return false;}
+                }
+            }
+        }
+    }
+    true
+}
+
+fn backtrack<T: Clone>(
+    assignement: &mut Assignement<T>,
+    variables: &Variables<T>,
+    constraints: &Constraints<T>,
+    keys: &Vec<String>,
+    index: usize,
+) -> bool {
+    if is_solution(assignement, constraints) {
+        return true;
+    }
+
+    if let Some(key) = keys.get(index) {
+        if let Some(values) = variables.get(key.as_str()) {
+            for v in values {
+                if let VariableType::Value(vx) = v {
+                    let checkpoint = assignement.clone();
+                    assignement.entry(key.clone())
+                        .and_modify(|x| *x = vx.clone())
+                        .or_insert(vx.clone());
+
+                    if backtrack(assignement, variables, constraints, keys, index+1) {
+                        return true;
+                    }
+                    *assignement = checkpoint;
+                }
+            }
+        }
+    }
+
+    
+    false
+}
+
+pub fn solution<T: Clone>(variables: &Variables<T>, constraints: &Constraints<T>) -> Option<Assignement<T>> {
+    let mut assignement = Assignement::new();
+    for k in variables.variable.keys() {
+        assignement.entry(k.clone())
+            .and_modify(|x| *x = variables.variable.get(k).unwrap().first().unwrap().clone())
+            .or_insert(variables.variable.get(k).unwrap().first().unwrap().clone());
+    }
+
+    let keys = variables.variable.keys().cloned().collect();
+
+    if backtrack(&mut assignement, variables, constraints, &keys, 0) {
+        Some(assignement)
+    } else {
+        None
     }
 }
