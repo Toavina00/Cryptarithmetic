@@ -6,6 +6,7 @@ mod ac;
 
 use ac::*;
 
+
 fn main() {
     let mut input0 = "ISA".to_string();
     let mut input1 = "ROA".to_string();
@@ -93,7 +94,7 @@ fn main() {
         let c1 = input1.chars().nth(i).unwrap();
         let c2 = output.chars().nth(i).unwrap();
         let carry_in = format!("CARRY_{}", i);
-        let carry_out= format!("CARRY_{}", if i == 0 {width-1} else {i-1});
+        let carry_out= if i == 0 {"#".to_string()} else {format!("CARRY_{}", i-1)};
 
         // Create Hidden Variables
         let mut hidden_variable = Vec::new();
@@ -153,7 +154,7 @@ fn main() {
                     let c = c.to_string();
                     move |a, b| {
                         if let (VariableType::Value(x), VariableType::Hidden(h)) = (a, b) {
-                            return h.get(&c).copied().map_or(false, |v| v == *x);
+                            return *h.get(&c).unwrap() == *x;
                         }
                         false
                     }
@@ -164,11 +165,12 @@ fn main() {
 
     // Filter the domain
     filter_domain(&mut variables, &constraints);
-    let mut assignment = solution(&variables, &constraints).unwrap();
+    let assignment = solution(&variables, &constraints).unwrap();
 
     // Print Results
-    variables.variable.retain(|k, _| !k.contains("CARRY") && *k != "#".to_string());
-    println!("{:?}", variables.variable);
-    assignment.retain(|k, _| !k.contains("CARRY") && *k != "#".to_string());
-    println!("{:?}", assignment);
+    println!("{:?}", assignment
+        .iter()
+        .filter_map(|(_, v)| v.value())
+        .collect::<Vec<_>>());
 }
+    

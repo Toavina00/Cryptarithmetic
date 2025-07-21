@@ -1,15 +1,50 @@
 #![allow(dead_code)]
 
 use std::collections::HashMap;
+use std::fmt::Debug;
 use std::rc::Rc;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum VariableType<T> {
     Value(Rc<T>),
     Hidden(Rc<HashMap<String, T>>),
 }
 
-pub type Assignement<T> = HashMap<String, Rc<T>>;
+impl<T: Clone> VariableType<T> {
+    pub fn value(&self) -> Option<&T> {
+        if let VariableType::Value(x) = self {
+            Some(&(**x))
+        } else {
+            None
+        }
+    }
+
+    pub fn hidden(&self) -> Option<&HashMap<String, T>> {
+        if let VariableType::Hidden(x) = self {
+            Some(&(**x))
+        } else {
+            None
+        }
+    }
+
+    pub fn value_ref(&self) -> Option<Rc<T>> {
+        if let VariableType::Value(x) = self {
+            Some(x.clone())
+        } else {
+            None
+        }
+    }
+
+    pub fn hidden_ref(&self) -> Option<Rc<HashMap<String, T>>> {
+        if let VariableType::Hidden(x) = self {
+            Some(x.clone())
+        } else {
+            None
+        }
+    }
+}
+
+pub type Assignement<T> = HashMap<String, VariableType<T>>;
 
 pub struct Variables<T> {
     pub variable: HashMap<String, Vec<Rc<T>>>,
@@ -45,20 +80,19 @@ impl<T: Clone> Variables<T> {
     pub fn update(&mut self, key: &str, values: impl Iterator<Item = VariableType<T>>) {
         if let Some(var) = self.variable.get_mut(key) {
             *var = values
-                .filter_map(|x| match x {
-                    VariableType::Value(v) => Some(v.clone()),
-                    _ => None,
-                })
+                .filter_map(|x| x.value_ref())
                 .collect();
         } else if let Some(var) = self.hidden_variable.get_mut(key) {
             *var = values
-                .filter_map(|x| match x {
-                    VariableType::Hidden(v) => Some(v.clone()),
-                    _ => None,
-                })
+                .filter_map(|x| x.hidden_ref())
                 .collect();
         }
     }
+
+    pub fn names(&self) -> Vec<String>{
+        self.variable.keys().chain(self.hidden_variable.keys()).cloned().collect()
+    }
+
 }
 
 pub enum Constraint<T> {
@@ -104,6 +138,8 @@ fn is_consistent<T: Clone>(variables: &Variables<T>, constraints: &Constraints<T
                     {
                         return false;
                     }
+                } else {
+                    return false;
                 }
             }
             Constraint::Unary((x, a)) => {
@@ -111,6 +147,8 @@ fn is_consistent<T: Clone>(variables: &Variables<T>, constraints: &Constraints<T
                     if x_values.iter().any(|v| !a(v.clone())) {
                         return false;
                     }
+                } else {
+                    return false;
                 }
             }
         }
@@ -158,12 +196,16 @@ fn is_solution<T: Clone>(assignement: &Assignement<T>, constraints: &Constraints
         match constraint {
             Constraint::Binary((x0, x1, a)) => {
                 if let (Some(x), Some(y)) = (assignement.get(x0), assignement.get(x1)) {
-                    if !a(VariableType::Value(x.clone()), VariableType::Value(y.clone())) {return false;}
+                    if !a(x.clone(), y.clone()) {return false;}
+                } else {
+                    return false;
                 }
             }
             Constraint::Unary((x, a)) => {
                 if let Some(v) = assignement.get(x) {
-                    if !a(VariableType::Value(v.clone())) {return false;}
+                    if !a(v.clone()) {return false;}
+                } else {
+                    return false;
                 }
             }
         }
@@ -183,38 +225,24 @@ fn backtrack<T: Clone>(
     }
 
     if let Some(key) = keys.get(index) {
-        if let Some(values) = variables.get(key.as_str()) {
+        if let Some(values) = variables.get(key) {
             for v in values {
-                if let VariableType::Value(vx) = v {
-                    let checkpoint = assignement.clone();
-                    assignement.entry(key.clone())
-                        .and_modify(|x| *x = vx.clone())
-                        .or_insert(vx.clone());
+                assignement.insert(key.clone(), v.clone());
 
-                    if backtrack(assignement, variables, constraints, keys, index+1) {
-                        return true;
-                    }
-                    *assignement = checkpoint;
+                if backtrack(assignement, variables, constraints, keys, index+1) {
+                    return true;
                 }
             }
         }
     }
 
-    
     false
 }
 
 pub fn solution<T: Clone>(variables: &Variables<T>, constraints: &Constraints<T>) -> Option<Assignement<T>> {
     let mut assignement = Assignement::new();
-    for k in variables.variable.keys() {
-        assignement.entry(k.clone())
-            .and_modify(|x| *x = variables.variable.get(k).unwrap().first().unwrap().clone())
-            .or_insert(variables.variable.get(k).unwrap().first().unwrap().clone());
-    }
 
-    let keys = variables.variable.keys().cloned().collect();
-
-    if backtrack(&mut assignement, variables, constraints, &keys, 0) {
+    if backtrack(&mut assignement, variables, constraints, &variables.names(), 0) {
         Some(assignement)
     } else {
         None
