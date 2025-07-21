@@ -1,5 +1,6 @@
 use std::cmp::max;
 use std::collections::{HashMap, HashSet};
+use std::env::args;
 use std::rc::Rc;
 
 mod ac;
@@ -7,12 +8,17 @@ mod ac;
 use ac::*;
 
 fn main() {
-    let mut input0 = "ISA".to_string();
-    let mut input1 = "ROA".to_string();
-    let mut output = "TELO".to_string();
+    let mut input0 = args().nth(1).unwrap();
+    let mut input1 = args().nth(2).unwrap();
+    let mut output = args().nth(3).unwrap();
 
     let mut variables: Variables<i32> = Variables::new();
     let mut constraints: Constraints<i32> = Vec::new();
+
+    constraints.push(Constraint::Unary((
+        "T".to_string(),
+        Rc::new(|x| *x.value().unwrap() == 1),
+    )));
 
     // Initialize Variables
     input0
@@ -173,17 +179,15 @@ fn main() {
 
     // Filter the domain
     filter_domain(&mut variables, &constraints);
-    /* 
     let assignment = solution(&variables, &constraints).unwrap();
 
     // Print Results
-
     println!(
         "{:?}",
         assignment
             .iter()
-            .filter_map(|(_, v)| v.value())
+            .filter(|(k, _)| !k.contains("CARRY") && !k.contains("HIDDEN") && *k != "#")
+            .map(|(k, v)| (k, v.value().unwrap()))
             .collect::<Vec<_>>()
     );
-*/
 }

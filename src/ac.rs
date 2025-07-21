@@ -100,15 +100,13 @@ impl<T: Clone> Variables<T> {
     }
 
     pub fn values(&self) -> Vec<(&Rc<String>, Vec<&T>)> {
-        self
-            .iter()
+        self.iter()
             .map(|(k, v)| (k, v.iter().map(|x| x.value().unwrap()).collect::<Vec<_>>()))
             .collect::<Vec<_>>()
     }
 
     pub fn hidden_values(&self) -> Vec<(&Rc<String>, Vec<&HashMap<String, T>>)> {
-        self
-            .iter_hidden()
+        self.iter_hidden()
             .map(|(k, v)| (k, v.iter().map(|x| x.hidden().unwrap()).collect::<Vec<_>>()))
             .collect::<Vec<_>>()
     }
@@ -121,7 +119,7 @@ impl<T: Clone> Variables<T> {
         self.variable.get_mut(&Rc::new(key.to_owned()))
     }
 
-    pub fn names(&self) -> Vec<Rc<String>>{
+    pub fn names(&self) -> Vec<Rc<String>> {
         self.variable.keys().cloned().collect()
     }
 }
