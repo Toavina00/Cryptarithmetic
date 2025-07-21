@@ -6,7 +6,6 @@ mod ac;
 
 use ac::*;
 
-
 fn main() {
     let mut input0 = "ISA".to_string();
     let mut input1 = "ROA".to_string();
@@ -31,16 +30,16 @@ fn main() {
         )
         .copied()
         .for_each(|s| {
-            variables.insert(s.to_string(), Vec::from_iter(0..=9));
+            variables.insert(&s.to_string(), Vec::from_iter(0..=9));
         });
 
     // Inequalities Constraints
-    for x in variables.variable.keys() {
-        for y in variables.variable.keys() {
+    for (x, _) in variables.iter() {
+        for (y, _) in variables.iter() {
             if *x != *y {
                 constraints.push(Constraint::Binary((
-                    x.clone(),
-                    y.clone(),
+                    x.to_string(),
+                    y.to_string(),
                     Rc::new(|a, b| {
                         if let (VariableType::Value(x), VariableType::Value(y)) = (a, b) {
                             return *x != *y;
@@ -59,7 +58,7 @@ fn main() {
     input1 = format!("{:#>w$}", input1, w = width);
     output = format!("{:#>w$}", output, w = width);
 
-    variables.insert("#".to_string(), vec![0]);
+    variables.insert("#", vec![0]);
 
     constraints.push(Constraint::Unary((
         "#".to_string(),
@@ -74,7 +73,7 @@ fn main() {
     // Add Carry variables
     for i in 0..width {
         let carry = format!("CARRY_{}", i);
-        variables.insert(carry, vec![0, 1]);
+        variables.insert(&carry, vec![0, 1]);
     }
 
     constraints.push(Constraint::Unary((
@@ -87,14 +86,17 @@ fn main() {
         }),
     )));
 
-
     // Initialize Constraints for each column
     for i in 0..width {
         let c0 = input0.chars().nth(i).unwrap();
         let c1 = input1.chars().nth(i).unwrap();
         let c2 = output.chars().nth(i).unwrap();
         let carry_in = format!("CARRY_{}", i);
-        let carry_out= if i == 0 {"#".to_string()} else {format!("CARRY_{}", i-1)};
+        let carry_out = if i == 0 {
+            "#".to_string()
+        } else {
+            format!("CARRY_{}", i - 1)
+        };
 
         // Create Hidden Variables
         let mut hidden_variable = Vec::new();
@@ -126,7 +128,7 @@ fn main() {
         }
 
         let h_name = format!("HIDDEN_{}", i);
-        variables.insert_hidden(h_name.clone(), hidden_variable);
+        variables.insert_hidden(&h_name, hidden_variable);
 
         // Unary Constraint for Hidden Variables (Addition Constraint)
         let (cvi, cvo) = (carry_in.clone(), carry_out.clone());
@@ -146,7 +148,13 @@ fn main() {
         )));
 
         // Binary Constraints: Hidden Variables <-> Original Variables
-        for c in [c0.to_string(), c1.to_string(), c2.to_string(), carry_in.to_string(), carry_out.to_string()] {
+        for c in [
+            c0.to_string(),
+            c1.to_string(),
+            c2.to_string(),
+            carry_in.to_string(),
+            carry_out.to_string(),
+        ] {
             constraints.push(Constraint::Binary((
                 c.clone(),
                 h_name.clone(),
@@ -165,12 +173,17 @@ fn main() {
 
     // Filter the domain
     filter_domain(&mut variables, &constraints);
+    /* 
     let assignment = solution(&variables, &constraints).unwrap();
 
     // Print Results
-    println!("{:?}", assignment
-        .iter()
-        .filter_map(|(_, v)| v.value())
-        .collect::<Vec<_>>());
+
+    println!(
+        "{:?}",
+        assignment
+            .iter()
+            .filter_map(|(_, v)| v.value())
+            .collect::<Vec<_>>()
+    );
+*/
 }
-    
