@@ -13,12 +13,7 @@ fn main() {
     let mut output = args().nth(3).unwrap();
 
     let mut variables: Variables<i32> = Variables::new();
-    let mut constraints: Constraints<i32> = Vec::new();
-
-    constraints.push(Constraint::Unary((
-        "T".to_string(),
-        Rc::new(|x| *x.value().unwrap() == 1),
-    )));
+    let mut constraints: Constraints<i32> = Constraints::new();
 
     // Initialize Variables
     input0
@@ -166,28 +161,59 @@ fn main() {
                 h_name.clone(),
                 Rc::new({
                     let c = c.to_string();
-                    move |a, b| {
-                        if let (VariableType::Value(x), VariableType::Hidden(h)) = (a, b) {
-                            return *h.get(&c).unwrap() == *x;
-                        }
-                        false
-                    }
+                    move |a, b| a.value().unwrap() == b.hidden().unwrap().get(&c).unwrap()
                 }),
             )));
         }
     }
 
-    // Filter the domain
-    filter_domain(&mut variables, &constraints);
-    let assignment = solution(&variables, &constraints).unwrap();
-
-    // Print Results
-    println!(
-        "{:?}",
-        assignment
-            .iter()
-            .filter(|(k, _)| !k.contains("CARRY") && !k.contains("HIDDEN") && *k != "#")
-            .map(|(k, v)| (k, v.value().unwrap()))
-            .collect::<Vec<_>>()
-    );
+    // Compute results
+    if let Some(assignment) = solution(&variables, &constraints) {
+        println!(
+            "{:?}",
+            assignment
+                .iter()
+                .filter(|(k, _)| !k.contains("CARRY") && !k.contains("HIDDEN") && *k != "#")
+                .map(|(k, v)| (k, v.value().unwrap()))
+                .collect::<Vec<_>>()
+        );
+        println!(
+            "{} + {} = {}",
+            input0
+                .chars()
+                .filter(|x| *x != '#')
+                .map(|x| assignment
+                    .get(&x.to_string())
+                    .unwrap()
+                    .value()
+                    .unwrap()
+                    .to_string())
+                .reduce(|acc, e| format!("{}{}", acc, e))
+                .unwrap(),
+            input1
+                .chars()
+                .filter(|x| *x != '#')
+                .map(|x| assignment
+                    .get(&x.to_string())
+                    .unwrap()
+                    .value()
+                    .unwrap()
+                    .to_string())
+                .reduce(|acc, e| format!("{}{}", acc, e))
+                .unwrap(),
+            output
+                .chars()
+                .filter(|x| *x != '#')
+                .map(|x| assignment
+                    .get(&x.to_string())
+                    .unwrap()
+                    .value()
+                    .unwrap()
+                    .to_string())
+                .reduce(|acc, e| format!("{}{}", acc, e))
+                .unwrap(),
+        )
+    } else {
+        println!("No Results");
+    }
 }

@@ -46,6 +46,7 @@ impl<T: Clone> VariableType<T> {
 
 pub type Assignement<T> = HashMap<String, VariableType<T>>;
 
+#[derive(Clone, Debug)]
 pub struct Variables<T> {
     variable: HashMap<Rc<String>, Vec<VariableType<T>>>,
     var_names: HashSet<Rc<String>>,
@@ -248,7 +249,7 @@ fn is_solution<T: Clone>(assignement: &Assignement<T>, constraints: &Constraints
     true
 }
 
-fn backtrack<T: Clone>(
+fn backtrack<T: Debug + Clone>(
     assignement: &mut Assignement<T>,
     variables: &Variables<T>,
     constraints: &Constraints<T>,
@@ -274,13 +275,44 @@ fn backtrack<T: Clone>(
     false
 }
 
-pub fn solution<T: Clone>(
+fn backtrack_filter<T: Debug + Clone + 'static>(
+    assignement: &mut Assignement<T>,
+    variables: &Variables<T>,
+    constraints: &Constraints<T>,
+    keys: &Vec<Rc<String>>,
+    index: usize,
+) -> bool {
+    if is_solution(assignement, constraints) {
+        return true;
+    }
+
+    if let Some(key) = keys.get(index) {
+        if let Some(values) = variables.get(key) {
+            for v in values {
+                assignement.insert(key.to_string(), v.clone());
+
+                let mut var_copies = variables.clone();
+                *var_copies.get_mut(key.as_str()).unwrap() = vec![v.clone()];
+
+                filter_domain(&mut var_copies, constraints);
+
+                if backtrack_filter(assignement, &var_copies, constraints, keys, index + 1) {
+                    return true;
+                }
+            }
+        }
+    }
+
+    false
+}
+
+pub fn solution<T: Debug + Clone + 'static>(
     variables: &Variables<T>,
     constraints: &Constraints<T>,
 ) -> Option<Assignement<T>> {
     let mut assignement = Assignement::new();
 
-    if backtrack(
+    if backtrack_filter(
         &mut assignement,
         variables,
         constraints,
