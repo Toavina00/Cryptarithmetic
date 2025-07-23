@@ -8,9 +8,9 @@ mod ac;
 use ac::*;
 
 fn main() {
-    let mut input0 = args().nth(1).unwrap();
-    let mut input1 = args().nth(2).unwrap();
-    let mut output = args().nth(3).unwrap();
+    let mut input0 = args().nth(1).expect("Missing first input argument");
+    let mut input1 = args().nth(2).expect("Missing second input argument");
+    let mut output = args().nth(3).expect("Missing output argument");
 
     let mut variables: Variables<i32> = Variables::new();
     let mut constraints: Constraints<i32> = Constraints::new();
@@ -69,16 +69,6 @@ fn main() {
     output = format!("{:#>w$}", output, w = width);
 
     variables.insert("#", vec![0]);
-
-    constraints.push(Constraint::Unary((
-        "#".to_string(),
-        Rc::new(|v| {
-            if let VariableType::Value(x) = v {
-                return *x == 0;
-            }
-            false
-        }),
-    )));
 
     // Add Carry variables
     for i in 0..width {
