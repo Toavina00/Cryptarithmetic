@@ -34,6 +34,15 @@ fn main() {
             variables.insert(&s.to_string(), Vec::from_iter(0..=9));
         });
 
+    // Leading character constraints
+    for input in [&input0, &input1, &output] {
+        let key = input.chars().nth(0).unwrap();
+        constraints.push(Constraint::Unary((
+            key.to_string(),
+            Rc::new(|x| *x.value().unwrap() != 0)
+        )));
+    }
+
     // Inequalities Constraints
     for (x, _) in variables.iter() {
         for (y, _) in variables.iter() {
